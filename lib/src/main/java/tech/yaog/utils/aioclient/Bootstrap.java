@@ -7,10 +7,8 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -39,11 +37,14 @@ public class Bootstrap {
         }
     };
 
-    private long soTimeout = 30000;
+    private long connTimeout = 30000;
+    private boolean keepAlive = false;
 
     public interface Event {
         void onConnected();
         void onDisconnected();
+        void onSent();
+        void onReceived();
     }
 
     public interface ExceptionHandler {
@@ -60,8 +61,13 @@ public class Bootstrap {
         return this;
     }
 
-    public Bootstrap soTimeout(long soTimeout) {
-        this.soTimeout = soTimeout;
+    public Bootstrap connTimeout(long connTimeout) {
+        this.connTimeout = connTimeout;
+        return this;
+    }
+
+    public Bootstrap keepAlive(boolean keepAlive) {
+        this.keepAlive = keepAlive;
         return this;
     }
 
@@ -161,8 +167,9 @@ public class Bootstrap {
     public void connect(InetSocketAddress address) throws IOException {
 
         socket = new Socket();
+        socket.setKeepAlive(keepAlive);
         try {
-            socket.connect(address, (int) soTimeout);
+            socket.connect(address, (int) connTimeout);
         } catch (IOException e) {
             throw e;
         }
@@ -174,14 +181,18 @@ public class Bootstrap {
             public void run() {
                 splitter.callback = new AbstractSplitter.Callback() {
                     @Override
-                    public void newFrame(int length) {
+                    public void newFrame(int length, int skip) {
+                        if (length <= 0 && skip <= 0) {
+                            return;
+                        }
                         if (length <= 0) {
+                            buffer = Arrays.copyOfRange(buffer, skip, buffer.length);
                             return;
                         }
                         byte[] data;
                         synchronized (bufferLock) {
                             data = Arrays.copyOf(buffer, length);
-                            buffer = Arrays.copyOfRange(buffer, length, buffer.length);
+                            buffer = Arrays.copyOfRange(buffer, length+skip, buffer.length);
                         }
                         for (AbstractDecoder<?> decoder : decoders.values()) {
                             final Object obj = decoder.decode(data);
@@ -217,11 +228,15 @@ public class Bootstrap {
                                 System.arraycopy(tmp, 0, buffer, offset, read);
                             }
                             splitter.split(buffer);
+                            if (event != null) {
+                                event.onReceived();
+                            }
                         }
                         if (read == -1) {
                             if (event != null) {
                                 event.onDisconnected();
                             }
+                            break;
                         }
                     } catch (IOException e) {
                         exceptionHandler.onExceptionTriggered(e);
@@ -255,6 +270,9 @@ public class Bootstrap {
                                     if (bytes != null) {
                                         try {
                                             os.write(bytes);
+                                            if (event != null) {
+                                                event.onSent();
+                                            }
                                         } catch (IOException e) {
                                             exceptionHandler.onExceptionTriggered(e);
                                         }

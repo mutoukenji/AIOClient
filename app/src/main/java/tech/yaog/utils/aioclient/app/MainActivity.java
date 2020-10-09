@@ -13,6 +13,7 @@ import tech.yaog.utils.aioclient.AbstractHandler;
 import tech.yaog.utils.aioclient.Bootstrap;
 import tech.yaog.utils.aioclient.StringDecoder;
 import tech.yaog.utils.aioclient.encoder.StringEncoder;
+import tech.yaog.utils.aioclient.splitter.DelimiterSplitter;
 import tech.yaog.utils.aioclient.splitter.TimestampSplitter;
 
 public class MainActivity extends AppCompatActivity {
@@ -43,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
                                     t.printStackTrace();
                                 }
                             })
-                            .soTimeout(30000)
+                            .connTimeout(30000)
                             .onEvent(new Bootstrap.Event() {
                                 @Override
                                 public void onConnected() {
@@ -59,8 +60,18 @@ public class MainActivity extends AppCompatActivity {
                                         e.printStackTrace();
                                     }
                                 }
+
+                                @Override
+                                public void onSent() {
+
+                                }
+
+                                @Override
+                                public void onReceived() {
+
+                                }
                             })
-                            .splitter(new TimestampSplitter(10))
+                            .splitter(new DelimiterSplitter("1$$_".getBytes()))
                             .connect(new InetSocketAddress("192.168.101.2", 6000));
                 } catch (IOException e) {
                     e.printStackTrace();

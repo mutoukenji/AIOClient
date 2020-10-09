@@ -16,6 +16,13 @@ allprojects {
     repositories {
         google()
         jcenter()
+        maven {
+            credentials {
+                username 'ZCcZsH'
+                password 'SNE3z2VdWY'
+            }
+            url 'https://repo.rdc.aliyun.com/repository/50717-snapshot-7tbFkI/'
+        }
     }
 }
 

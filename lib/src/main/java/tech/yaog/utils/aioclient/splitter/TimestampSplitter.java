@@ -26,7 +26,7 @@ public class TimestampSplitter extends AbstractSplitter {
                         long now = System.nanoTime();
                         long past = now - lastPacket;
                         if (past >= checkInterval) {
-                            callback.newFrame(currentLength);
+                            callback.newFrame(currentLength, 0);
                             synchronized (TimestampSplitter.this) {
                                 TimestampSplitter.this.lastPacket = 0;
                                 TimestampSplitter.this.currentLength = 0;
