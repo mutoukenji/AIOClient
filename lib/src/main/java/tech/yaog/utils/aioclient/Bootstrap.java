@@ -277,6 +277,7 @@ public class Bootstrap {
                                     if (bytes != null) {
                                         try {
                                             os.write(bytes);
+                                            os.flush();
                                             if (event != null) {
                                                 event.onSent();
                                             }
