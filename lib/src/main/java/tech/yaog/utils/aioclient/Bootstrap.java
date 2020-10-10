@@ -217,6 +217,7 @@ public class Bootstrap {
                         }
                     }
                 };
+                int readFailed = 0;
                 while (!Thread.interrupted()) {
                     try {
                         int read;
@@ -233,10 +234,16 @@ public class Bootstrap {
                             }
                         }
                         if (read == -1) {
-                            if (event != null) {
-                                event.onDisconnected();
+                            readFailed++;
+                            if (readFailed >= 10) {
+                                if (event != null) {
+                                    event.onDisconnected();
+                                }
+                                break;
                             }
-                            break;
+                        }
+                        else {
+                            readFailed = 0;
                         }
                     } catch (IOException e) {
                         exceptionHandler.onExceptionTriggered(e);
