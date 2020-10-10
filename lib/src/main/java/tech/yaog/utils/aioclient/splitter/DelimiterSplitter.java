@@ -17,7 +17,7 @@ public class DelimiterSplitter extends AbstractSplitter {
         if (length < delimiterLength) {
             return;
         }
-        for (int i = 0;i<length - delimiterLength;i++) {
+        for (int i = 0;i<=length - delimiterLength;i++) {
             if (equals(raw, i, delimiter, 0, delimiterLength)) {
                 callback.newFrame(i, delimiterLength);
                 return;

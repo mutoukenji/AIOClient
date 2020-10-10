@@ -186,13 +186,21 @@ public class Bootstrap {
                             return;
                         }
                         if (length <= 0) {
-                            buffer = Arrays.copyOfRange(buffer, skip, buffer.length);
+                            synchronized (bufferLock) {
+                                buffer = Arrays.copyOfRange(buffer, skip, buffer.length);
+                                if (buffer.length > 0) {
+                                    splitter.split(buffer);
+                                }
+                            }
                             return;
                         }
                         byte[] data;
                         synchronized (bufferLock) {
                             data = Arrays.copyOf(buffer, length);
                             buffer = Arrays.copyOfRange(buffer, length+skip, buffer.length);
+                            if (buffer.length > 0) {
+                                splitter.split(buffer);
+                            }
                         }
                         for (AbstractDecoder<?> decoder : decoders.values()) {
                             final Object obj = decoder.decode(data);
