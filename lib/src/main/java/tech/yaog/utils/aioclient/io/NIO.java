@@ -7,6 +7,7 @@ import androidx.annotation.Keep;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -73,6 +74,9 @@ public class NIO extends TCPIO {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, keepAlive);
             }
+            else {
+                socketChannel.socket().setKeepAlive(keepAlive);
+            }
             socketChannel.configureBlocking(false);
             boolean isConnected = socketChannel.connect(new InetSocketAddress(address, port));
             if (!isConnected) {
@@ -134,14 +138,19 @@ public class NIO extends TCPIO {
                             key = it.next();
                             if (key.isReadable()) {
                                 ByteBuffer buffer = ByteBuffer.allocate(1024);
-                                int read = socketChannel.read(buffer);
-                                if (read > 0) {
-                                    byte[] bytes = new byte[read];
-                                    buffer.flip();
-                                    buffer.get(bytes);
-                                    callback.onReceived(bytes);
+                                try {
+                                    int read = socketChannel.read(buffer);
+                                    if (read > 0) {
+                                        byte[] bytes = new byte[read];
+                                        buffer.flip();
+                                        buffer.get(bytes);
+                                        callback.onReceived(bytes);
+                                    } else if (read < 0) {
+                                        callback.onDisconnected();
+                                        break;
+                                    }
                                 }
-                                else if (read < 0) {
+                                catch (SocketException e) {
                                     callback.onDisconnected();
                                     break;
                                 }
@@ -150,6 +159,7 @@ public class NIO extends TCPIO {
                                 boolean needSend = true;
                                 while (needSend) {
                                     byte[] bytes = null;
+                                    int ret = 0;
                                     synchronized (toSend) {
                                         if (!toSend.isEmpty()) {
                                             bytes = toSend.poll();
@@ -157,10 +167,15 @@ public class NIO extends TCPIO {
                                     }
                                     if (bytes != null) {
                                         ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                                        socketChannel.write(buffer);
+                                        ret = socketChannel.write(buffer);
                                     }
-                                    synchronized (toSend) {
-                                        needSend = !toSend.isEmpty();
+                                    if (ret < 0) {
+                                        needSend = false;
+                                    }
+                                    else {
+                                        synchronized (toSend) {
+                                            needSend = !toSend.isEmpty();
+                                        }
                                     }
                                 }
                             }

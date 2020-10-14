@@ -13,6 +13,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import tech.yaog.utils.aioclient.io.AIO;
 import tech.yaog.utils.aioclient.io.BIO;
 import tech.yaog.utils.aioclient.io.NIO;
 import tech.yaog.utils.aioclient.io.TCPIO;
@@ -180,14 +181,15 @@ public class Bootstrap {
 
     /**
      * 根据 Android 版本自动决定使用的 io 接口.
-     * 由于 Android N 才开始支持 NIO 的 SocketOption，在 Android N 以上版本中使用 NIO，之前的版本使用 BIO。
+     * Android O 以上使用 AIO， 否则用 NIO。
+     * 可以自己指定接口，也可以自己实现
      * @return io 接口类
      */
     public static Class<? extends TCPIO> autoDetect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return NIO.class;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return AIO.class;
         }
-        return BIO.class;
+        return NIO.class;
     }
 
     public void send(Object msg) {

@@ -14,6 +14,7 @@ import tech.yaog.utils.aioclient.AbstractHandler;
 import tech.yaog.utils.aioclient.Bootstrap;
 import tech.yaog.utils.aioclient.StringDecoder;
 import tech.yaog.utils.aioclient.encoder.StringEncoder;
+import tech.yaog.utils.aioclient.io.AIO;
 import tech.yaog.utils.aioclient.io.BIO;
 import tech.yaog.utils.aioclient.io.NIO;
 import tech.yaog.utils.aioclient.splitter.DelimiterSplitter;
@@ -37,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public boolean handle(String msg) {
                                     Log.d("Recv", msg);
-                                    bootstrap.send("Re "+msg);
+                                    bootstrap.send("Re "+msg+"\r\n");
                                     return true;
                                 }
                             })
@@ -47,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
                                     t.printStackTrace();
                                 }
                             })
-                            .tcpioClass(NIO.class)
+//                            .tcpioClass(AIO.class)
                             .connTimeout(30000)
                             .onEvent(new Bootstrap.Event() {
                                 @Override
@@ -71,8 +72,9 @@ public class MainActivity extends AppCompatActivity {
 
                                 }
                             })
-//                            .splitter(new DelimiterSplitter("1".getBytes()))
-                            .splitter(new TimestampSplitter(50))
+                            .keepAlive(true)
+                            .splitter(new DelimiterSplitter("\r\n".getBytes()))
+//                            .splitter(new TimestampSplitter(50))
                             .connect(InetAddress.getByName("192.168.101.2"), 6000);
                 } catch (IOException e) {
                     e.printStackTrace();
