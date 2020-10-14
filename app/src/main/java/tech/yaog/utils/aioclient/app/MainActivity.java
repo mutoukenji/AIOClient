@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 
@@ -13,6 +14,8 @@ import tech.yaog.utils.aioclient.AbstractHandler;
 import tech.yaog.utils.aioclient.Bootstrap;
 import tech.yaog.utils.aioclient.StringDecoder;
 import tech.yaog.utils.aioclient.encoder.StringEncoder;
+import tech.yaog.utils.aioclient.io.BIO;
+import tech.yaog.utils.aioclient.io.NIO;
 import tech.yaog.utils.aioclient.splitter.DelimiterSplitter;
 import tech.yaog.utils.aioclient.splitter.TimestampSplitter;
 
@@ -44,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
                                     t.printStackTrace();
                                 }
                             })
+                            .tcpioClass(NIO.class)
                             .connTimeout(30000)
                             .onEvent(new Bootstrap.Event() {
                                 @Override
@@ -54,11 +58,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onDisconnected() {
                                     Log.e("Conn", "disconnected!!");
-                                    try {
-                                        bootstrap.disconnect();
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    }
+                                    bootstrap.disconnect();
                                 }
 
                                 @Override
@@ -71,8 +71,9 @@ public class MainActivity extends AppCompatActivity {
 
                                 }
                             })
-                            .splitter(new DelimiterSplitter("1$$_".getBytes()))
-                            .connect(new InetSocketAddress("192.168.101.2", 6000));
+//                            .splitter(new DelimiterSplitter("1".getBytes()))
+                            .splitter(new TimestampSplitter(50))
+                            .connect(InetAddress.getByName("192.168.101.2"), 6000);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }

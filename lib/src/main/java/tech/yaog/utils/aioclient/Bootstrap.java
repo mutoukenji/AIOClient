@@ -1,12 +1,10 @@
 package tech.yaog.utils.aioclient;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import android.os.Build;
+
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +13,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import tech.yaog.utils.aioclient.io.BIO;
+import tech.yaog.utils.aioclient.io.NIO;
+import tech.yaog.utils.aioclient.io.TCPIO;
 import tech.yaog.utils.aioclient.splitter.TimestampSplitter;
 
 /**
@@ -37,7 +38,7 @@ public class Bootstrap {
         }
     };
 
-    private long connTimeout = 30000;
+    private int connTimeout = 30000;
     private boolean keepAlive = false;
 
     public interface Event {
@@ -61,7 +62,7 @@ public class Bootstrap {
         return this;
     }
 
-    public Bootstrap connTimeout(long connTimeout) {
+    public Bootstrap connTimeout(int connTimeout) {
         this.connTimeout = connTimeout;
         return this;
     }
@@ -122,20 +123,72 @@ public class Bootstrap {
         return this;
     }
 
+    public Bootstrap tcpioClass(Class<? extends TCPIO> tcpioClass) {
+        this.tcpioClass = tcpioClass;
+        return this;
+    }
+
     public Bootstrap splitter(AbstractSplitter splitter) {
         this.splitter = splitter;
         return this;
     }
 
-    private Thread readerThread;
     private Thread senderThread;
-    private Socket socket;
     private ThreadPoolExecutor executors = new ScheduledThreadPoolExecutor(10);
     private final Object bufferLock = new Object();
     private byte[] buffer = new byte[0];
     private final Object sendLock = new Object();
+    private TCPIO tcpio;
+    private Class<? extends TCPIO> tcpioClass = autoDetect();
 
     private Queue<Object> toSendList = new ArrayBlockingQueue<>(10000);
+
+    private TCPIO.Callback callback = new TCPIO.Callback() {
+        @Override
+        public void onReceived(byte[] data) {
+            synchronized (bufferLock) {
+                int offset = buffer.length;
+                buffer = Arrays.copyOf(buffer, offset + data.length);
+                System.arraycopy(data, 0, buffer, offset, data.length);
+            }
+            splitter.split(buffer);
+            if (event != null) {
+                event.onReceived();
+            }
+        }
+
+        @Override
+        public void onConnected() {
+            tcpio.beginRead();
+            if (event != null) {
+                event.onConnected();
+            }
+        }
+
+        @Override
+        public void onDisconnected() {
+            if (event != null) {
+                event.onDisconnected();
+            }
+        }
+
+        @Override
+        public void onException(Throwable t) {
+            exceptionHandler.onExceptionTriggered(t);
+        }
+    };
+
+    /**
+     * 根据 Android 版本自动决定使用的 io 接口.
+     * 由于 Android N 才开始支持 NIO 的 SocketOption，在 Android N 以上版本中使用 NIO，之前的版本使用 BIO。
+     * @return io 接口类
+     */
+    public static Class<? extends TCPIO> autoDetect() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return NIO.class;
+        }
+        return BIO.class;
+    }
 
     public void send(Object msg) {
         synchronized (sendLock) {
@@ -144,125 +197,71 @@ public class Bootstrap {
         }
     }
 
-    public void disconnect() throws IOException {
-        if (readerThread != null) {
-            readerThread.interrupt();
-        }
+    public void disconnect() {
+        tcpio.stopRead();
         if (senderThread != null) {
             senderThread.interrupt();
         }
-        if (socket != null) {
-            try {
-                socket.getInputStream().close();
-                socket.getOutputStream().close();
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                socket = null;
-            }
-        }
+        tcpio.disconnect();
     }
 
-    public void connect(InetSocketAddress address) throws IOException {
-
-        socket = new Socket();
-        socket.setKeepAlive(keepAlive);
+    public void connect(InetAddress address, int port) {
         try {
-            socket.connect(address, (int) connTimeout);
-        } catch (IOException e) {
-            throw e;
+            tcpio = tcpioClass.getDeclaredConstructor(TCPIO.Callback.class).newInstance(callback);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
         }
-        final InputStream is = socket.getInputStream();
-        final OutputStream os = socket.getOutputStream();
-
-        readerThread = new Thread(new Runnable() {
+        tcpio.setKeepAlive(keepAlive);
+        tcpio.setConnTimeout(connTimeout);
+        splitter.callback = new AbstractSplitter.Callback() {
             @Override
-            public void run() {
-                splitter.callback = new AbstractSplitter.Callback() {
-                    @Override
-                    public void newFrame(int length, int skip) {
-                        if (length <= 0 && skip <= 0) {
-                            return;
-                        }
-                        if (length <= 0) {
-                            synchronized (bufferLock) {
-                                buffer = Arrays.copyOfRange(buffer, skip, buffer.length);
-                                if (buffer.length > 0) {
-                                    splitter.split(buffer);
-                                }
-                            }
-                            return;
-                        }
-                        byte[] data;
-                        synchronized (bufferLock) {
-                            data = Arrays.copyOf(buffer, length);
-                            buffer = Arrays.copyOfRange(buffer, length+skip, buffer.length);
-                            if (buffer.length > 0) {
-                                splitter.split(buffer);
-                            }
-                        }
-                        for (AbstractDecoder<?> decoder : decoders.values()) {
-                            final Object obj = decoder.decode(data);
-                            if (obj != null) {
-                                executors.execute(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        for (Class<?> clazz : handlers.keySet()) {
-                                            if (clazz.isAssignableFrom(obj.getClass())) {
-                                                AbstractHandler handler = handlers.get(clazz);
-                                                try {
-                                                    handler.handle(obj);
-                                                }
-                                                catch (Exception e) {
-                                                    exceptionHandler.onExceptionTriggered(e);
-                                                }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
+            public void newFrame(int length, int skip) {
+                if (length <= 0 && skip <= 0) {
+                    return;
+                }
+                if (length <= 0) {
+                    synchronized (bufferLock) {
+                        buffer = Arrays.copyOfRange(buffer, skip, buffer.length);
+                        if (buffer.length > 0) {
+                            splitter.split(buffer);
                         }
                     }
-                };
-                int readFailed = 0;
-                while (!Thread.interrupted()) {
-                    try {
-                        int read;
-                        byte[] tmp = new byte[1024];
-                        while ((read = is.read(tmp)) > 0) {
-                            synchronized (bufferLock) {
-                                int offset = buffer.length;
-                                buffer = Arrays.copyOf(buffer, offset + read);
-                                System.arraycopy(tmp, 0, buffer, offset, read);
-                            }
-                            splitter.split(buffer);
-                            if (event != null) {
-                                event.onReceived();
-                            }
-                        }
-                        if (read == -1) {
-                            readFailed++;
-                            if (readFailed >= 10) {
-                                if (event != null) {
-                                    event.onDisconnected();
+                    return;
+                }
+                byte[] data;
+                synchronized (bufferLock) {
+                    data = Arrays.copyOf(buffer, length);
+                    buffer = Arrays.copyOfRange(buffer, length+skip, buffer.length);
+                    if (buffer.length > 0) {
+                        splitter.split(buffer);
+                    }
+                }
+                for (AbstractDecoder<?> decoder : decoders.values()) {
+                    final Object obj = decoder.decode(data);
+                    if (obj != null) {
+                        executors.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                for (Class<?> clazz : handlers.keySet()) {
+                                    if (clazz.isAssignableFrom(obj.getClass())) {
+                                        AbstractHandler handler = handlers.get(clazz);
+                                        try {
+                                            handler.handle(obj);
+                                        }
+                                        catch (Exception e) {
+                                            exceptionHandler.onExceptionTriggered(e);
+                                        }
+                                    }
                                 }
-                                break;
                             }
-                        }
-                        else {
-                            readFailed = 0;
-                        }
-                    } catch (IOException e) {
-                        exceptionHandler.onExceptionTriggered(e);
+                        });
                     }
                 }
             }
-        });
+        };
 
-        readerThread.setPriority(Thread.MAX_PRIORITY);
-        readerThread.setName(address.getAddress()+":"+address.getPort()+"_Recv");
-        readerThread.start();
+        tcpio.connect(address, port);
 
         senderThread = new Thread(new Runnable() {
             @Override
@@ -283,14 +282,9 @@ public class Bootstrap {
                                     AbstractEncoder encoder = encoders.get(clazz);
                                     byte[] bytes = encoder.encode(msg);
                                     if (bytes != null) {
-                                        try {
-                                            os.write(bytes);
-                                            os.flush();
-                                            if (event != null) {
-                                                event.onSent();
-                                            }
-                                        } catch (IOException e) {
-                                            exceptionHandler.onExceptionTriggered(e);
+                                        tcpio.write(bytes);
+                                        if (event != null) {
+                                            event.onSent();
                                         }
                                         break;
                                     }
@@ -310,7 +304,7 @@ public class Bootstrap {
                 }
             }
         });
-        senderThread.setName(address.getAddress()+":"+address.getPort()+"_Send");
+        senderThread.setName(address.getAddress()+":"+port+"_Send");
         senderThread.start();
 
         if (event != null) {
