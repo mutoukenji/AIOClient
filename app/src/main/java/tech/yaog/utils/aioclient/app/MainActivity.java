@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
                                 t.printStackTrace();
                             }
                         })
-//                            .tcpioClass(AIO.class)
+//                        .ioClass(AIO.class)
                         .connTimeout(30000)
                         .onEvent(new Bootstrap.Event() {
                             @Override

@@ -73,7 +73,7 @@ bootstrap.connect("192.168.101.2:6000");
 ## 更多用法
 手动选择io类
 ```
-bootstrap.tcpioClass(BIO.class)
+bootstrap.ioClass(BIO.class)
 ```
 默认提供BIO NIO AIO供选择，如果不设置的话，Android O以上使用AIO，否则使用NIO。
 
