@@ -9,12 +9,13 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 
 @RequiresApi(Build.VERSION_CODES.O)
-public class AIO extends TCPIO {
+public class AIO extends IO {
 
     private AsynchronousSocketChannel socketChannel;
     private final Object connLock = new Object();
@@ -28,7 +29,26 @@ public class AIO extends TCPIO {
     }
 
     @Override
-    public boolean connect(InetAddress address, int port) {
+    public boolean connect(String remote) {
+        String[] remoteBlocks = remote.split(":");
+        if (remoteBlocks.length < 2) {
+            return false;
+        }
+        InetAddress address;
+        int port;
+        try {
+            address = InetAddress.getByName(remoteBlocks[0].trim());
+        } catch (UnknownHostException e) {
+            callback.onException(e);
+            return false;
+        }
+        try {
+            port = Integer.parseInt(remoteBlocks[1].trim());
+        }
+        catch (NumberFormatException e) {
+            callback.onException(e);
+            return false;
+        }
         try {
             socketChannel = AsynchronousSocketChannel.open();
             socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, keepAlive);

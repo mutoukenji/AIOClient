@@ -2,7 +2,7 @@ package tech.yaog.utils.aioclient.io;
 
 import java.net.InetAddress;
 
-public abstract class TCPIO {
+public abstract class IO {
 
     public interface Callback {
         void onReceived(byte[] data);
@@ -11,7 +11,7 @@ public abstract class TCPIO {
         void onException(Throwable t);
     }
 
-    public abstract boolean connect(InetAddress address, int port);
+    public abstract boolean connect(String remote);
     public abstract void disconnect();
     public abstract void beginRead();
     public abstract void stopRead();
@@ -21,7 +21,7 @@ public abstract class TCPIO {
     protected boolean keepAlive;
     protected int connTimeout = 0;
 
-    public TCPIO(Callback callback) {
+    public IO(Callback callback) {
         this.callback = callback;
     }
 

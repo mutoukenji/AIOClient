@@ -9,10 +9,11 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 
 @Keep
-public class BIO extends TCPIO {
+public class BIO extends IO {
 
     private Socket socket;
     private Thread readerThread;
@@ -22,7 +23,26 @@ public class BIO extends TCPIO {
     }
 
     @Override
-    public boolean connect(InetAddress address, int port) {
+    public boolean connect(String remote) {
+        String[] remoteBlocks = remote.split(":");
+        if (remoteBlocks.length < 2) {
+            return false;
+        }
+        InetAddress address;
+        int port;
+        try {
+            address = InetAddress.getByName(remoteBlocks[0].trim());
+        } catch (UnknownHostException e) {
+            callback.onException(e);
+            return false;
+        }
+        try {
+            port = Integer.parseInt(remoteBlocks[1].trim());
+        }
+        catch (NumberFormatException e) {
+            callback.onException(e);
+            return false;
+        }
         socket = new Socket();
         try {
             socket.setKeepAlive(keepAlive);

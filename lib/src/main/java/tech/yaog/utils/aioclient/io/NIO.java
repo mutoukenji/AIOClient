@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.StandardSocketOptions;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
@@ -20,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 
 @Keep
-public class NIO extends TCPIO {
+public class NIO extends IO {
 
     private SocketChannel socketChannel;
     private Selector selector;
@@ -67,7 +68,26 @@ public class NIO extends TCPIO {
     private Thread opThread;
 
     @Override
-    public boolean connect(InetAddress address, int port) {
+    public boolean connect(String remote) {
+        String[] remoteBlocks = remote.split(":");
+        if (remoteBlocks.length < 2) {
+            return false;
+        }
+        InetAddress address;
+        int port;
+        try {
+            address = InetAddress.getByName(remoteBlocks[0].trim());
+        } catch (UnknownHostException e) {
+            callback.onException(e);
+            return false;
+        }
+        try {
+            port = Integer.parseInt(remoteBlocks[1].trim());
+        }
+        catch (NumberFormatException e) {
+            callback.onException(e);
+            return false;
+        }
         try {
             socketChannel = SocketChannel.open();
             selector = Selector.open();

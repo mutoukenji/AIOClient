@@ -4,7 +4,6 @@ import android.os.Build;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,9 +13,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import tech.yaog.utils.aioclient.io.AIO;
-import tech.yaog.utils.aioclient.io.BIO;
 import tech.yaog.utils.aioclient.io.NIO;
-import tech.yaog.utils.aioclient.io.TCPIO;
+import tech.yaog.utils.aioclient.io.IO;
 import tech.yaog.utils.aioclient.splitter.TimestampSplitter;
 
 /**
@@ -124,8 +122,8 @@ public class Bootstrap {
         return this;
     }
 
-    public Bootstrap tcpioClass(Class<? extends TCPIO> tcpioClass) {
-        this.tcpioClass = tcpioClass;
+    public Bootstrap ioClass(Class<? extends IO> ioClass) {
+        this.ioClass = ioClass;
         return this;
     }
 
@@ -139,12 +137,12 @@ public class Bootstrap {
     private final Object bufferLock = new Object();
     private byte[] buffer = new byte[0];
     private final Object sendLock = new Object();
-    private TCPIO tcpio;
-    private Class<? extends TCPIO> tcpioClass = autoDetect();
+    private IO io;
+    private Class<? extends IO> ioClass = autoDetect();
 
     private Queue<Object> toSendList = new ArrayBlockingQueue<>(10000);
 
-    private TCPIO.Callback callback = new TCPIO.Callback() {
+    private IO.Callback callback = new IO.Callback() {
         @Override
         public void onReceived(byte[] data) {
             synchronized (bufferLock) {
@@ -160,7 +158,7 @@ public class Bootstrap {
 
         @Override
         public void onConnected() {
-            tcpio.beginRead();
+            io.beginRead();
             if (event != null) {
                 event.onConnected();
             }
@@ -185,7 +183,7 @@ public class Bootstrap {
      * 可以自己指定接口，也可以自己实现
      * @return io 接口类
      */
-    public static Class<? extends TCPIO> autoDetect() {
+    public static Class<? extends IO> autoDetect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return AIO.class;
         }
@@ -200,22 +198,22 @@ public class Bootstrap {
     }
 
     public void disconnect() {
-        tcpio.stopRead();
+        io.stopRead();
         if (senderThread != null) {
             senderThread.interrupt();
         }
-        tcpio.disconnect();
+        io.disconnect();
     }
 
-    public void connect(InetAddress address, int port) {
+    public void connect(String remote) {
         try {
-            tcpio = tcpioClass.getDeclaredConstructor(TCPIO.Callback.class).newInstance(callback);
+            io = ioClass.getDeclaredConstructor(IO.Callback.class).newInstance(callback);
         } catch (Exception e) {
             e.printStackTrace();
             return;
         }
-        tcpio.setKeepAlive(keepAlive);
-        tcpio.setConnTimeout(connTimeout);
+        io.setKeepAlive(keepAlive);
+        io.setConnTimeout(connTimeout);
         splitter.callback = new AbstractSplitter.Callback() {
             @Override
             public void newFrame(int length, int skip) {
@@ -263,7 +261,7 @@ public class Bootstrap {
             }
         };
 
-        tcpio.connect(address, port);
+        io.connect(remote);
 
         senderThread = new Thread(new Runnable() {
             @Override
@@ -284,7 +282,7 @@ public class Bootstrap {
                                     AbstractEncoder encoder = encoders.get(clazz);
                                     byte[] bytes = encoder.encode(msg);
                                     if (bytes != null) {
-                                        tcpio.write(bytes);
+                                        io.write(bytes);
                                         if (event != null) {
                                             event.onSent();
                                         }
@@ -306,7 +304,7 @@ public class Bootstrap {
                 }
             }
         });
-        senderThread.setName(address.getAddress()+":"+port+"_Send");
+        senderThread.setName(remote+"_Send");
         senderThread.start();
 
         if (event != null) {
