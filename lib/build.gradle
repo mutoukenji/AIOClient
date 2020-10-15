@@ -3,7 +3,7 @@ apply plugin: 'maven'
 
 ext {
     bintrayRepo = 'maven'
-    bintrayName = 'serial-port'
+    bintrayName = 'aio-client'
 
     publishedGroupId = 'tech.yaog.utils'
     libraryName = 'AIOClient'
@@ -11,8 +11,8 @@ ext {
 
     libraryDescription = 'Asynchronous IO Client for Android'
 
-    siteUrl = 'https://gitee.com/lzzco/aioclient'
-    gitUrl = 'https://gitee.com/lzzco/aioclient.git'
+    siteUrl = 'https://github.com/mutoukenji/AIOClient'
+    gitUrl = 'https://github.com/mutoukenji/AIOClient.git'
 
     libraryVersion = '1.1.0'
 
@@ -21,7 +21,7 @@ ext {
     developerEmail = 'mutoukenji@gmail.com'
 
     licenseName = 'MIT'
-    licenseUrl = 'https://gitee.com/lzzco/aioclient/raw/master/LICENSE'
+    licenseUrl = 'https://raw.githubusercontent.com/mutoukenji/AIOClient/master/LICENSE'
     allLicenses = ["MIT"]
 }
 
@@ -44,6 +44,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    setProperty("archivesBaseName", "aio-client")
 }
 
 dependencies {
