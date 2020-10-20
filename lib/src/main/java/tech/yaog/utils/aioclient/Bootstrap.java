@@ -306,10 +306,6 @@ public class Bootstrap {
         });
         senderThread.setName(remote+"_Send");
         senderThread.start();
-
-        if (event != null) {
-            event.onConnected();
-        }
     }
 
 }
