@@ -216,7 +216,7 @@ public class Bootstrap {
         io.setConnTimeout(connTimeout);
         splitter.callback = new AbstractSplitter.Callback() {
             @Override
-            public void newFrame(int length, int skip) {
+            public void newFrame(int offset, int length, int skip) {
                 if (length <= 0 && skip <= 0) {
                     return;
                 }
@@ -231,8 +231,8 @@ public class Bootstrap {
                 }
                 byte[] data;
                 synchronized (bufferLock) {
-                    data = Arrays.copyOf(buffer, length);
-                    buffer = Arrays.copyOfRange(buffer, length+skip, buffer.length);
+                    data = Arrays.copyOfRange(buffer, offset, length + offset);
+                    buffer = Arrays.copyOfRange(buffer, offset+length+skip, buffer.length);
                     if (buffer.length > 0) {
                         splitter.split(buffer);
                     }
@@ -258,6 +258,16 @@ public class Bootstrap {
                         });
                     }
                 }
+            }
+
+            @Override
+            public void newFrame(int length, int skip) {
+                newFrame(0, length, skip);
+            }
+
+            @Override
+            public void newFrame(int length) {
+                newFrame(0, length, 0);
             }
         };
 

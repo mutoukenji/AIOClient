@@ -11,6 +11,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 
 import tech.yaog.utils.aioclient.AbstractHandler;
+import tech.yaog.utils.aioclient.AbstractSplitter;
 import tech.yaog.utils.aioclient.Bootstrap;
 import tech.yaog.utils.aioclient.StringDecoder;
 import tech.yaog.utils.aioclient.encoder.StringEncoder;
@@ -18,6 +19,7 @@ import tech.yaog.utils.aioclient.io.AIO;
 import tech.yaog.utils.aioclient.io.BIO;
 import tech.yaog.utils.aioclient.io.NIO;
 import tech.yaog.utils.aioclient.splitter.DelimiterSplitter;
+import tech.yaog.utils.aioclient.splitter.HeadToTailDelimiterSplitter;
 import tech.yaog.utils.aioclient.splitter.TimestampSplitter;
 
 public class MainActivity extends AppCompatActivity {
@@ -72,7 +74,8 @@ public class MainActivity extends AppCompatActivity {
                             }
                         })
                         .keepAlive(true)
-                        .splitter(new DelimiterSplitter("\r\n".getBytes()))
+                        .splitter(new DelimiterSplitter("$$".getBytes()))
+//                        .splitter(new HeadToTailDelimiterSplitter("1$".getBytes(), "$$".getBytes()))
 //                            .splitter(new TimestampSplitter(50))
                         .connect("192.168.101.2:6000");
             }
