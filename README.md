@@ -6,7 +6,7 @@
 ## 使用
 build.gradle中添加如下dependency
 ```
-implementation 'tech.yaog.utils:aio-client:1.1.1'
+implementation 'tech.yaog.utils:aio-client:1.1.3'
 ```
 
 new 一个 Bootstrap
