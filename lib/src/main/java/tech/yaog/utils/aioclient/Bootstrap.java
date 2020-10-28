@@ -205,12 +205,12 @@ public class Bootstrap {
         io.disconnect();
     }
 
-    public void connect(String remote) {
+    public boolean connect(String remote) {
         try {
             io = ioClass.getDeclaredConstructor(IO.Callback.class).newInstance(callback);
         } catch (Exception e) {
             e.printStackTrace();
-            return;
+            return false;
         }
         io.setKeepAlive(keepAlive);
         io.setConnTimeout(connTimeout);
@@ -271,7 +271,11 @@ public class Bootstrap {
             }
         };
 
-        io.connect(remote);
+        boolean ret = io.connect(remote);
+
+        if (!ret) {
+            return false;
+        }
 
         senderThread = new Thread(new Runnable() {
             @Override
@@ -316,6 +320,8 @@ public class Bootstrap {
         });
         senderThread.setName(remote+"_Send");
         senderThread.start();
+
+        return true;
     }
 
 }
