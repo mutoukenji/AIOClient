@@ -5,9 +5,18 @@
 主要用于TCP长通讯，可以自定义拆包、编码解码方法，并设置handler来处理收到的消息
 
 ## 使用
-build.gradle中添加如下dependency
+今后发布在jetpack上，请在工程build.gradle中添加
 ```
-implementation 'tech.yaog.utils:aio-client:1.1.3'
+allprojects {
+		repositories {
+			...
+			maven { url 'https://jitpack.io' }
+		}
+	}
+```
+项目build.gradle中添加如下dependency
+```
+implementation 'tech.yaog.utils:aio-client:1.1.4'
 ```
 
 new 一个 Bootstrap
