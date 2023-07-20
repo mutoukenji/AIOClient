@@ -1,5 +1,5 @@
 apply plugin: 'com.android.library'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 
 ext {
     bintrayRepo = 'maven'
@@ -14,7 +14,7 @@ ext {
     siteUrl = 'https://github.com/mutoukenji/AIOClient'
     gitUrl = 'https://github.com/mutoukenji/AIOClient.git'
 
-    libraryVersion = '1.1.4'
+    libraryVersion = '1.1.5'
 
     developerId = 'mutoukenji'
     developerName = 'MutouKenji'
@@ -26,13 +26,11 @@ ext {
 }
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 32
 
     defaultConfig {
         minSdkVersion 14
-        targetSdkVersion 29
-        versionCode 1
-        versionName "1.0"
+        targetSdkVersion 32
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -45,11 +43,19 @@ android {
         }
     }
 
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+
     setProperty("archivesBaseName", "aio-client")
+    namespace 'tech.yaog.utils.aioclient'
 }
 
 dependencies {
-    implementation 'androidx.annotation:annotation:1.1.0'
+    implementation 'androidx.annotation:annotation:1.6.0'
 }
 
 tasks.withType(JavaCompile) {
@@ -60,5 +66,19 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
-apply from: 'installv1.gradle'
-apply from: 'bintrayv1.gradle'
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                // Applies the component for the release build variant.
+                from components.release
+
+                // You can then customize attributes of the publication as shown below.
+                groupId = 'tech.yaog.utils'
+                artifactId = 'aio-client'
+                version = '1.1.5'
+            }
+        }
+    }
+}

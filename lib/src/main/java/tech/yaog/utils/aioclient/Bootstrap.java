@@ -233,9 +233,6 @@ public class Bootstrap {
                 synchronized (bufferLock) {
                     data = Arrays.copyOfRange(buffer, offset, length + offset);
                     buffer = Arrays.copyOfRange(buffer, offset+length+skip, buffer.length);
-                    if (buffer.length > 0) {
-                        splitter.split(buffer);
-                    }
                 }
                 for (AbstractDecoder<?> decoder : decoders.values()) {
                     final Object obj = decoder.decode(data);
@@ -256,6 +253,11 @@ public class Bootstrap {
                                 }
                             }
                         });
+                    }
+                }
+                synchronized (bufferLock) {
+                    if (buffer.length > 0) {
+                        splitter.split(buffer);
                     }
                 }
             }
